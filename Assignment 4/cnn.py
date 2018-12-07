@@ -72,8 +72,8 @@ trX, trY, teX, teY = TrF, TrL, TeF, TeL
 X = tf.placeholder("float", [None, 32, 32, 3])
 Y = tf.placeholder("float", [None, 10])
 
-w = init_weights([3, 3, 1, 32])       # 3x3x1 conv, 32 outputs
-w_fc = init_weights([32 * 14 * 14, 625]) # FC 32 * 14 * 14 inputs, 625 outputs
+w = init_weights([3, 3, 3, 32])       # 3x3x1 conv, 32 outputs
+w_fc = init_weights([32 * 16 * 16, 625]) # FC 32 * 14 * 14 inputs, 625 outputs
 w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)
 
 p_keep_conv = tf.placeholder("float")
