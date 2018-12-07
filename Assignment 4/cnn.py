@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 from tensorflow.examples.tutorials.mnist import input_data
 
-batch_size = 128
+batch_size = 100
 test_size = 256
 
 #Begin data processing section
@@ -89,18 +89,20 @@ with tf.Session() as sess:
     # you need to initialize all variables
     tf.global_variables_initializer().run()
 
-    for i in range(100):
-        training_batch = zip(range(0, len(trX), batch_size),
-                             range(batch_size, len(trX)+1, batch_size))
-        for start, end in training_batch:
-            sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end],
-                                          p_keep_conv: 0.8, p_keep_hidden: 0.5})
+    for j in range(1, 6):
+        trX, trY = loadBatch("CIFARdata", j)
+        for i in range(100):
+            training_batch = zip(range(0, len(trX), batch_size),
+                                range(batch_size, len(trX)+1, batch_size))
+            for start, end in training_batch:
+                sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end],
+                                            p_keep_conv: 0.8, p_keep_hidden: 0.5})
 
-        test_indices = np.arange(len(teX)) # Get A Test Batch
-        np.random.shuffle(test_indices)
-        test_indices = test_indices[0:test_size]
+            test_indices = np.arange(len(teX)) # Get A Test Batch
+            np.random.shuffle(test_indices)
+            test_indices = test_indices[0:test_size]
 
-        print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
-                         sess.run(predict_op, feed_dict={X: teX[test_indices],
-                                                         p_keep_conv: 1.0,
-                                                         p_keep_hidden: 1.0})))
+            print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
+                            sess.run(predict_op, feed_dict={X: teX[test_indices],
+                                                            p_keep_conv: 1.0,
+                                                            p_keep_hidden: 1.0})))
