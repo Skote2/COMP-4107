@@ -10,6 +10,18 @@ test_size = 256
 
 #Begin data processing section
 
+def variable_summaries(var):
+  """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+  with tf.name_scope('summaries'):
+    mean = tf.reduce_mean(var)
+    tf.summary.scalar('mean', mean)
+    with tf.name_scope('stddev'):
+      stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+    tf.summary.scalar('stddev', stddev)
+    tf.summary.scalar('max', tf.reduce_max(var))
+    tf.summary.scalar('min', tf.reduce_min(var))
+    tf.summary.histogram('histogram', var)
+
 def normalize(x):
     min_val = np.min(x)
     max_val = np.max(x)
@@ -74,37 +86,60 @@ trX, trY, teX, teY = TrF, TrL, TeF, TeL
 X = tf.placeholder("float", [None, 32, 32, 3])
 Y = tf.placeholder("float", [None, 10])
 
-w = init_weights([2, 2, 3, 128])       # 2x2x3 conv, 128 outputs
-w_fc = init_weights([128 * 16 * 16, 625]) # FC 128 * 14 * 14 inputs, 625 outputs
-w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)z
+with tf.name_scope("Weights"):
+    w = init_weights([2, 2, 3, 128])       # 2x2x3 conv, 128 outputs
+    w_fc = init_weights([128 * 16 * 16, 625]) # FC 128 * 14 * 14 inputs, 625 outputs
+    w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)z
+    variable_summaries(w)
+    variable_summaries(w_fc)
+    variable_summaries(w_o)
 
-p_keep_conv = tf.placeholder("float")
-p_keep_hidden = tf.placeholder("float")
-py_x = model(X, w, w_fc, w_o, p_keep_conv, p_keep_hidden)
+with tf.name_scope("pVariables"):
+    p_keep_conv = tf.placeholder("float")
+    p_keep_hidden = tf.placeholder("float")
 
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y))
-train_op = tf.train.RMSPropOptimizer(0.001, 0.9).minimize(cost)
-predict_op = tf.argmax(py_x, 1)
+with tf.name_scope("model"):
+    py_x = model(X, w, w_fc, w_o, p_keep_conv, p_keep_hidden)
+
+with tf.name_scope("Loss"):
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y))
+with tf.name_scope("GradientDescent"):
+    train_op = tf.train.RMSPropOptimizer(0.001, 0.9).minimize(cost)
+with tf.name_scope('Accuracy'):
+    # Accuracy
+    predict_op = tf.argmax(py_x, 1)
+    acc = tf.equal(tf.argmax(py_x, 1), tf.argmax(Y, 1))
+    acc = tf.reduce_mean(tf.cast(acc, tf.float32))
 
 # Launch the graph in a session
 with tf.Session() as sess:
     # you need to initialize all variables
     tf.global_variables_initializer().run()
-
+    # Create a summary to monitor cost tensor
+    tf.summary.scalar("loss", cost)
+    # Create a summary to monitor accuracy tensor
+    tf.summary.scalar("accuracy", acc)
+    
+    summaries = tf.summary.merge_all()
+    
+    writer = tf.summary.FileWriter('./board/question1part5/model3/', sess.graph)
+    
     for j in range(1, 6):
         trX, trY = loadBatch("CIFARdata", j)
         for i in range(100):
             training_batch = zip(range(0, len(trX), batch_size),
                                 range(batch_size, len(trX)+1, batch_size))
             for start, end in training_batch:
-                sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end],
+                summary, _ = sess.run([summaries, train_op], feed_dict={X: trX[start:end], Y: trY[start:end],
                                             p_keep_conv: 0.8, p_keep_hidden: 0.5})
+                writer.add_summary(summary, i)
 
             test_indices = np.arange(len(teX)) # Get A Test Batch
             np.random.shuffle(test_indices)
             test_indices = test_indices[0:test_size]
 
-            print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
-                            sess.run(predict_op, feed_dict={X: teX[test_indices],
+            accuracy = sess.run(predict_op, feed_dict={X: teX[test_indices],
                                                             p_keep_conv: 1.0,
-                                                            p_keep_hidden: 1.0})))
+                                                            p_keep_hidden: 1.0})
+            tf.summary.scalar("accuracy", accuracy)
+            print(i, np.mean(np.argmax(teY[test_indices], axis=1) == accuracy))

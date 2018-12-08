@@ -8,6 +8,19 @@ test_size = 256
 
 #Begin data processing section
 
+#this funciton is copied form tensorflow.org
+def variable_summaries(var):
+  """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+  with tf.name_scope('summaries'):
+    mean = tf.reduce_mean(var)
+    tf.summary.scalar('mean', mean)
+    with tf.name_scope('stddev'):
+      stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+    tf.summary.scalar('stddev', stddev)
+    tf.summary.scalar('max', tf.reduce_max(var))
+    tf.summary.scalar('min', tf.reduce_min(var))
+    tf.summary.histogram('histogram', var)
+
 def normalize(x):
     min_val = np.min(x)
     max_val = np.max(x)
@@ -76,10 +89,14 @@ with tf.name_scope("Weights"):
     w = init_weights([3, 3, 3, 32])       # 3x3x1 conv, 32 outputs
     w_fc = init_weights([32 * 16 * 16, 625]) # FC 32 * 14 * 14 inputs, 625 outputs
     w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)
+    variable_summaries(w)
+    variable_summaries(w_fc)
+    variable_summaries(w_o)
 
 with tf.name_scope("pVariables"):
     p_keep_conv = tf.placeholder("float")
     p_keep_hidden = tf.placeholder("float")
+with tf.name_scope("model"):
     py_x = model(X, w, w_fc, w_o, p_keep_conv, p_keep_hidden)
 
 with tf.name_scope("Loss"):
@@ -104,11 +121,11 @@ with tf.Session() as sess:
     
     summaries = tf.summary.merge_all()
     
-    writer = tf.summary.FileWriter('./board/asfd', sess.graph)
+    writer = tf.summary.FileWriter('./board/question1part5/model1/', sess.graph)
     
     for j in range(1, 6):
         trX, trY = loadBatch("CIFARdata", j)
-        for i in range(100):
+        for i in range(15):
             training_batch = zip(range(0, len(trX), batch_size),
                                 range(batch_size, len(trX)+1, batch_size))
             for start, end in training_batch:
