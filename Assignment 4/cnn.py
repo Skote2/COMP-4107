@@ -72,37 +72,56 @@ trX, trY, teX, teY = TrF, TrL, TeF, TeL
 X = tf.placeholder("float", [None, 32, 32, 3])
 Y = tf.placeholder("float", [None, 10])
 
-w = init_weights([3, 3, 3, 32])       # 3x3x1 conv, 32 outputs
-w_fc = init_weights([32 * 16 * 16, 625]) # FC 32 * 14 * 14 inputs, 625 outputs
-w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)
+with tf.name_scope("Weights"):
+    w = init_weights([3, 3, 3, 32])       # 3x3x1 conv, 32 outputs
+    w_fc = init_weights([32 * 16 * 16, 625]) # FC 32 * 14 * 14 inputs, 625 outputs
+    w_o = init_weights([625, 10])         # FC 625 inputs, 10 outputs (labels)
 
-p_keep_conv = tf.placeholder("float")
-p_keep_hidden = tf.placeholder("float")
-py_x = model(X, w, w_fc, w_o, p_keep_conv, p_keep_hidden)
+with tf.name_scope("pVariables"):
+    p_keep_conv = tf.placeholder("float")
+    p_keep_hidden = tf.placeholder("float")
+    py_x = model(X, w, w_fc, w_o, p_keep_conv, p_keep_hidden)
 
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y))
-train_op = tf.train.RMSPropOptimizer(0.001, 0.9).minimize(cost)
-predict_op = tf.argmax(py_x, 1)
+with tf.name_scope("Loss"):
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y))
+with tf.name_scope("GradientDescent"):
+    train_op = tf.train.RMSPropOptimizer(0.001, 0.9).minimize(cost)
+
+with tf.name_scope('Accuracy'):
+    # Accuracy
+    predict_op = tf.argmax(py_x, 1)
+    acc = tf.equal(tf.argmax(py_x, 1), tf.argmax(Y, 1))
+    acc = tf.reduce_mean(tf.cast(acc, tf.float32))
 
 # Launch the graph in a session
 with tf.Session() as sess:
     # you need to initialize all variables
     tf.global_variables_initializer().run()
-
+    # Create a summary to monitor cost tensor
+    tf.summary.scalar("loss", cost)
+    # Create a summary to monitor accuracy tensor
+    tf.summary.scalar("accuracy", acc)
+    
+    summaries = tf.summary.merge_all()
+    
+    writer = tf.summary.FileWriter('./board/asfd', sess.graph)
+    
     for j in range(1, 6):
         trX, trY = loadBatch("CIFARdata", j)
         for i in range(100):
             training_batch = zip(range(0, len(trX), batch_size),
                                 range(batch_size, len(trX)+1, batch_size))
             for start, end in training_batch:
-                sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end],
+                summary, _ = sess.run([summaries, train_op], feed_dict={X: trX[start:end], Y: trY[start:end],
                                             p_keep_conv: 0.8, p_keep_hidden: 0.5})
+                writer.add_summary(summary, i)
 
             test_indices = np.arange(len(teX)) # Get A Test Batch
             np.random.shuffle(test_indices)
             test_indices = test_indices[0:test_size]
 
-            print(i, np.mean(np.argmax(teY[test_indices], axis=1) ==
-                            sess.run(predict_op, feed_dict={X: teX[test_indices],
+            accuracy = sess.run(predict_op, feed_dict={X: teX[test_indices],
                                                             p_keep_conv: 1.0,
-                                                            p_keep_hidden: 1.0})))
+                                                            p_keep_hidden: 1.0})
+            tf.summary.scalar("accuracy", accuracy)
+            print(i, np.mean(np.argmax(teY[test_indices], axis=1) == accuracy))
