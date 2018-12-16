@@ -6,13 +6,36 @@ import librosa
 import imageio
 import pickle
 import warnings
+import time
 
 warnings.filterwarnings("ignore")
+
+dimToFind = 0
+found = 0
 
 songs = []
 metadata = []
 genres = [2, 10, 12, 15, 17, 21, 38, 1235]
 genreLabels = ["International", "Pop", "Rock", "Electronic", "Folk", "Hip-Hop", "Experimental", "Instrumental"]
+
+def millis():
+    return int(round(time.time() * 1000))
+
+def pad(array, reference_shape, offsets):
+    """
+    array: Array to be padded
+    reference_shape: tuple of size of ndarray to create
+    offsets: list of offsets (number of elements must be equal to the dimension of the array)
+    will throw a ValueError if offsets is too big and the reference_shape cannot handle the offsets
+    """
+
+    # Create an array of zeros with the reference shape
+    result = np.zeros(reference_shape)
+    # Create a list of slices from offset to offset + shape in each dimension
+    insertHere = [slice(offsets[dim], offsets[dim] + array.shape[dim]) for dim in range(array.ndim)]
+    # Insert the array in the result at the specified offsets
+    result[insertHere] = array
+    return result
 
 def save(obj, val):
     with open('Data/TrainingData'+str(val)+'.pkl', 'wb') as f:
@@ -32,13 +55,16 @@ def normalize(x):
 
 def getMel(filename, genre):
 
+    global found
+    global dimToFind
+
     while(len(filename) < 6):
         filename = '0'+filename
 
     audio_path = 'Data/Songs/'+filename+'.mp3'
 
-    sr = 8000
-    numMels = 32
+    sr = 22000
+    numMels = 128
 
     y, _ = librosa.load(audio_path, sr=sr)
 
@@ -48,6 +74,14 @@ def getMel(filename, genre):
     # Convert to log scale (dB). We'll use the peak power (max) as reference.
     log_S = librosa.power_to_db(S, ref=np.max)
     log_S = normalize(log_S)
+
+    if(dimToFind == 0):
+        dimToFind = log_S.shape
+        dimToFind = (dimToFind[0], dimToFind[1]+3)
+
+    log_S = pad(log_S, dimToFind, (0, 0))
+
+    if(log_S.shape == dimToFind): found += 1
 
     imageio.imwrite('Data/Datagrams/'+filename+'.png', log_S)
     return filename, {'data' : log_S, 'genre' : genre}
@@ -76,18 +110,21 @@ def loadData():
     print(len(songs))
     print(encodedMetadata.shape)
 
-    #percentage = 0
-    percentage = 90
-    #dataCount = 0
-    dataCount = 9
+    percentage = 0
+    dataCount = 0
     finalDict = {}
+    start = millis()
+    curr = millis()
 
-    for i in range(7200, len(songs)):
+    for i in range(len(songs)):
         if(i%80 == 0):
-            print(percentage,"%")
+            curr = millis()
+            timeLeft = ((curr-start)/1000)*(100-percentage)
+            print(percentage,"%, ETA: ",timeLeft," seconds reamining")
             percentage += 1
+            start = millis()
 
-        if(i%800 == 0 and i > 7200):
+        if(i%800 == 0 and i > 0):
             dataCount += 1
             save(finalDict, dataCount)
             finalDict = {}
@@ -100,5 +137,6 @@ def loadData():
     save(finalDict, dataCount)
     finalDict = {}
     print("Saved")
+    print(found, dimToFind)
 
 loadData()
