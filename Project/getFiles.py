@@ -8,6 +8,10 @@ import pickle
 import warnings
 import time
 
+#Convert all mp3's in the Data/Songs/ directory into MEL spectrograms and encode them to pickle files for distribution
+
+#Converted files use 16000Hz sample rate and 64 mels
+
 warnings.filterwarnings("ignore")
 
 dimToFind = 0
@@ -22,13 +26,6 @@ def millis():
     return int(round(time.time() * 1000))
 
 def pad(array, reference_shape, offsets):
-    """
-    array: Array to be padded
-    reference_shape: tuple of size of ndarray to create
-    offsets: list of offsets (number of elements must be equal to the dimension of the array)
-    will throw a ValueError if offsets is too big and the reference_shape cannot handle the offsets
-    """
-
     # Create an array of zeros with the reference shape
     result = np.zeros(reference_shape)
     # Create a list of slices from offset to offset + shape in each dimension
@@ -63,8 +60,8 @@ def getMel(filename, genre):
 
     audio_path = 'Data/Songs/'+filename+'.mp3'
 
-    sr = 22000
-    numMels = 128
+    sr = 16000
+    numMels = 64
 
     y, _ = librosa.load(audio_path, sr=sr)
 
@@ -98,12 +95,7 @@ def loadData():
         csv_reader = csv.reader(csv_file, delimiter=',')
         for row in csv_reader:
             if(row[0] in songs):
-                data = ast.literal_eval(row[41])
-                final = 0
-                for entry in data:
-                    if(entry in genres):
-                        final = genres.index(entry)
-                metadata.append(final)
+                metadata.append(genreLabels.index(row[40]))
 
     encodedMetadata = oneHotEncode(metadata)
 
@@ -120,7 +112,7 @@ def loadData():
         if(i%80 == 0):
             curr = millis()
             timeLeft = ((curr-start)/1000)*(100-percentage)
-            print(percentage,"%, ETA: ",timeLeft," seconds reamining")
+            print(percentage,"%, ETA: ",timeLeft," seconds remaining")
             percentage += 1
             start = millis()
 
@@ -137,6 +129,6 @@ def loadData():
     save(finalDict, dataCount)
     finalDict = {}
     print("Saved")
-    print(found, dimToFind)
+    print("Found ",found, dimToFind, " dimension results")
 
 loadData()

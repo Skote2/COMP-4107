@@ -1,11 +1,18 @@
 import numpy as numpy
 import pickle
 
-def load():
-    with open('Data/TestingData.pkl', 'rb') as f:
+#Print the distribution of genres in the dataset
+
+def load(id):
+    with open('Data/TrainingData'+str(id)+'.pkl', 'rb') as f:
         return pickle.load(f)
 
-test = load()
+res = [0, 0, 0, 0, 0, 0, 0, 0]
 
-print(test)
-print(len(test))
+for i in range(1, 11):
+    test = load(i)
+    for _, val in test.items():
+        index = val['genre'].tolist().index(1)
+        res[index] = res[index] + 1
+
+print(res)
